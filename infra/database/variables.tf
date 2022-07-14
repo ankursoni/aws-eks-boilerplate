@@ -1,0 +1,16 @@
+variable "environment" {}
+variable "vpc_security_group_ids" {}
+variable "database_subnet_group_name" {}
+variable "database_subnet_ids" {}
+variable "enable_database_public_access" {}
+variable "database_engine" {}
+variable "database_engine_version" {}
+variable "database_db_parameter_group_family" {}
+variable "database_db_option_group_major_engine_verion" {}
+variable "database_is_multi_az" {}
+variable "database_instance_class" {}
+variable "database_instance_name" {}
+variable "database_storage_gb" {}
+variable "database_storage_type" {}
+variable "database_masterdb_username" {}
+variable "database_masterdb_password" {}
