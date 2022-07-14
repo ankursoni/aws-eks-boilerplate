@@ -13,7 +13,7 @@ module "private_ec2_instance" {
 
   ami                    = "ami-07620139298af599e"
   instance_type          = "t2.micro"
-  key_name               = var.key_pair_name
+  key_name               = var.bastion_key_pair_name
   vpc_security_group_ids = var.private_security_group_ids
   subnet_id              = var.private_subnets[0]
 
@@ -28,7 +28,7 @@ module "public_ec2_instance" {
 
   ami                    = "ami-07620139298af599e"
   instance_type          = "t2.micro"
-  key_name               = var.key_pair_name
+  key_name               = var.bastion_key_pair_name
   vpc_security_group_ids = var.public_security_group_ids
   subnet_id              = var.public_subnets[0]
 

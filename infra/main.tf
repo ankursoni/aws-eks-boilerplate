@@ -48,7 +48,7 @@ module "bastion" {
   source                     = "./bastion"
   providers                  = { aws = aws.default }
   environment                = var.environment
-  key_pair_name              = var.bastion_key_pair_name
+  bastion_key_pair_name      = var.bastion_key_pair_name
   private_security_group_ids = [module.network.vpc_default_security_group_id]
   public_security_group_ids  = [module.network.vpc_default_security_group_id, module.network.public_bastion_security_group_id]
   private_subnets            = module.network.private_subnets
