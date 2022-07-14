@@ -37,6 +37,9 @@ cd infra
 terraform init
 
 terraform apply -var-file=values.tfvars
+
+# delete all resources created by terraform
+terraform destroy
 ```
 
 ### Access RDS database instance from bastion hosts
