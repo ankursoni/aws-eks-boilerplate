@@ -150,9 +150,10 @@ alembic -c ./demo/alembic_dev.ini upgrade head
 ```
 
 NOTE: to check if the database migrations ran successfully, connect with your locally running mysql db instance:
-```sql
+```sh
 mysql -u root
-
+```
+```sql
 show databases;
 +--------------------+
 | Database           |
@@ -324,8 +325,10 @@ set demo "This is a demo text from k8s redis!"
 ```
 Edit the 'values.yaml' file in ./deploy/helm/eks-demo-app/values.yaml
 to uncomment the following section under 'env:'
+```yaml
   - name: REDIS_HOST
     value: "eks-demo-app-redis"
+```
 ```sh
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
