@@ -10,7 +10,6 @@ module "s3_bucket" {
   version = "3.3.0"
 
   bucket = var.s3_bucket_name
-  acl    = "private"
 
   tags = local.tags
 }
