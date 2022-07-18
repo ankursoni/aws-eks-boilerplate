@@ -1,7 +1,7 @@
 # aws-eks-boilerplate
 
 [![Build](https://github.com/ankursoni/aws-eks-boilerplate/actions/workflows/build.yml/badge.svg)](https://github.com/ankursoni/aws-eks-boilerplate/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/ankursoni/aws-eks-boilerplate/branch/main/graph/badge.svg?token=ZZWMD4FB93)](https://codecov.io/gh/ankursoni/aws-eks-boilerplate)
+[![codecov](https://codecov.io/gh/ankursoni/aws-eks-boilerplate/branch/milestone1/graph/badge.svg?token=ZZWMD4FB93)](https://codecov.io/gh/ankursoni/aws-eks-boilerplate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/github/license/ankursoni/aws-eks-boilerplate)](/LICENSE)
 
@@ -216,8 +216,6 @@ curl http://localhost:8080/redis
 This is a demo text from redis!
 ```
 
-
-
 2. Or, build and run in docker container:
 ```sh
 # change directory to demo
@@ -312,7 +310,7 @@ helm uninstall eks-demo-app -n eks-demo
 kubectl delete namespace eks-demo
 ```
 
-1. Or, run in local kubernetes cluster with local redis running inside kubernetes
+4. Or, run in local kubernetes cluster with local redis running inside kubernetes
 ```sh
 # port forward to kubernetes redis service
 kubectl --namespace eks-demo port-forward svc/eks-demo-app-redis 63790:6379
@@ -323,7 +321,7 @@ redis-cli -p 63790
 # set value for key - 'demo'
 set demo "This is a demo text from k8s redis!"
 ```
-Edit the 'values.yaml' file in ./deploy/helm/eks-demo-app/values.yaml
+Edit the 'values.yaml' file in .deploy/helm/eks-demo-app/values.yaml
 to uncomment the following section under 'env:'
 ```yaml
   - name: REDIS_HOST
