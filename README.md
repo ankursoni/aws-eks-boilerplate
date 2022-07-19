@@ -47,7 +47,7 @@ terraform init
 terraform apply -var-file=values.tfvars
 
 # delete all resources created by terraform
-terraform destroy
+terraform destroy -var-file=values.tfvars
 ```
 
 ### Access RDS database instance from bastion hosts
@@ -117,11 +117,11 @@ pylint ./demo
 # - 'user1' with <username>
 # - 'password1' with <password>
 # - 'localhost' with <database server>
-create database if not exists demodb
+create database if not exists demodb;
 
 create user if not exists user1@localhost identified by 'password1';
 
-grant all on demodb.* to user1@localhost
+grant all on demodb.* to user1@localhost;
 ```
 
 ### Setup redis with key/value pair
@@ -237,7 +237,7 @@ docker build \
 	--build-arg AWS_ACCESS_KEY_ID="<AWS ACCESS KEY ID>" \
 	--build-arg AWS_SECRET_ACCESS_KEY="<AWS SECRET ACCESS KEY>" \
 	--build-arg REDIS_HOST="host.docker.internal" \
-	-t eks-demo:app .
+	-t eks-demo:app --platform linux/amd64 .
 
 # run docker container with 'migrateThenApi' command
 # you can also use other commands:

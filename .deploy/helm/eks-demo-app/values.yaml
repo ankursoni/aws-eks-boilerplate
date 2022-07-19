@@ -39,6 +39,7 @@ securityContext: {}
 env:
   # - name: DB_CONNECTION_URL
   #   value: "mysql+mysqldb://user1:password1@host.docker.internal/demodb"
+  #   #value: "mysql+mysqldb://user1:password1@demo-database.cduk3y1m9z90.ap-southeast-2.rds.amazonaws.com/demodb"
   # - name: AWS_REGION
   #   value: "<AWS REGION>"
   # - name: AWS_S3_BUCKET
@@ -49,6 +50,10 @@ env:
   #   value: "<AWS SECRET ACCESS KEY>"
   # - name: REDIS_HOST
   #   value: "eks-demo-app-redis"
+
+securityGroup:
+  enabled: false
+  default: ""
 
 service:
   type: ClusterIP
@@ -76,11 +81,11 @@ resources: #{}
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
+    cpu: 400m
+    memory: 512Mi
+  requests:
     cpu: 200m
     memory: 256Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
 autoscaling:
   enabled: false

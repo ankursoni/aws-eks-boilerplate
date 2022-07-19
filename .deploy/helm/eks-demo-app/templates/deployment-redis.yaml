@@ -21,7 +21,7 @@ spec:
       containers:
         - name: redis
           image: "docker.io/redis:latest"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379
               protocol: TCP

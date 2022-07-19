@@ -6,6 +6,7 @@ module "network" {
   environment                   = var.environment
   create_database_instance      = var.create_database_instance
   enable_database_public_access = var.enable_database_public_access
+  create_bastion                = var.create_bastion
 }
 
 module "database" {
@@ -54,5 +55,25 @@ module "bastion" {
   private_subnets            = module.network.private_subnets
   public_subnets             = module.network.public_subnets
 
+  count      = var.create_bastion ? 1 : 0
+  depends_on = [module.network]
+}
+
+module "cluster" {
+  source                            = "./cluster"
+  providers                         = { aws = aws.default }
+  region                            = var.region
+  prefix                            = var.prefix
+  environment                       = var.environment
+  vpc_id                            = module.network.vpc_id
+  subnets                           = concat(module.network.private_subnets, module.network.public_subnets)
+  eks_kubernetes_version            = var.eks_kubernetes_version
+  eks_managed_instance_min_size     = var.eks_managed_instance_min_size
+  eks_managed_instance_max_size     = var.eks_managed_instance_max_size
+  eks_managed_instance_desired_size = var.eks_managed_instance_desired_size
+  eks_managed_instance_types        = var.eks_managed_instance_types
+  eks_managed_capacity_type         = var.eks_managed_capacity_type
+
+  count      = var.create_eks_cluster ? 1 : 0
   depends_on = [module.network]
 }

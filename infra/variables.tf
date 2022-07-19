@@ -55,6 +55,31 @@ variable "s3_bucket_name" {
   default = ""
 }
 
+variable "create_bastion" {
+  default = false
+}
 variable "bastion_key_pair_name" {
   default = ""
+}
+
+variable "create_eks_cluster" {
+  default = false
+}
+variable "eks_kubernetes_version" {
+  default = "1.22"
+}
+variable "eks_managed_instance_min_size" {
+  default = 1
+}
+variable "eks_managed_instance_max_size" {
+  default = 10
+}
+variable "eks_managed_instance_desired_size" {
+  default = 1
+}
+variable "eks_managed_instance_types" {
+  default = ["t3.medium"]
+}
+variable "eks_managed_capacity_type" {
+  default = "ON_DEMAND" # SPOT or ON_DEMAND
 }

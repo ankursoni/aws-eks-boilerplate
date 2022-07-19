@@ -82,7 +82,7 @@ locals {
         from_port   = 80
         to_port     = 80
         protocol    = "tcp"
-        cidr_block  = "10.0.100.0/22" # public subnets cidr
+        cidr_block  = "0.0.0.0/0" # internet
       },
       {
         rule_number = 110
@@ -90,7 +90,7 @@ locals {
         from_port   = 443
         to_port     = 443
         protocol    = "tcp"
-        cidr_block  = "10.0.100.0/22" # public subnets cidr
+        cidr_block  = "0.0.0.0/0" # internet
       },
       {
         rule_number = 120
@@ -151,7 +151,7 @@ locals {
         from_port   = 3306
         to_port     = 3306
         protocol    = "tcp"
-        cidr_block  = "10.0.0.0/22" # private subnets cidr
+        cidr_block  = "10.0.0.0/16" # all subnets
       },
     ]
     database_subnet_outbound = [
@@ -161,7 +161,7 @@ locals {
         from_port   = 3306
         to_port     = 3306
         protocol    = "tcp"
-        cidr_block  = "10.0.0.0/22" # private subnets cidr
+        cidr_block  = "10.0.0.0/16" # all subnets
       },
     ]
 
@@ -172,28 +172,12 @@ locals {
         from_port   = 3306
         to_port     = 3306
         protocol    = "tcp"
-        cidr_block  = "10.0.0.0/16" # all subnets
-      },
-      {
-        rule_number = 120
-        rule_action = "allow"
-        from_port   = 3306
-        to_port     = 3306
-        protocol    = "tcp"
         cidr_block  = "${chomp(data.http.myip.body)}/32" # your ip address
       },
     ]
     public_database_subnet_outbound = [
       {
         rule_number = 110
-        rule_action = "allow"
-        from_port   = 3306
-        to_port     = 3306
-        protocol    = "tcp"
-        cidr_block  = "10.0.0.0/16" # all subnets
-      },
-      {
-        rule_number = 120
         rule_action = "allow"
         from_port   = 3306
         to_port     = 3306
@@ -232,7 +216,7 @@ data "http" "myip" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "3.14.2"
+  version = "~> 3.14.2"
 
   name = "${var.prefix}-${var.environment}-vpc01"
   cidr = "10.0.0.0/16"
@@ -244,13 +228,14 @@ module "vpc" {
   database_subnets             = var.create_database_instance ? ["10.0.52.0/24", "10.0.53.0/24"] : []
   public_subnets               = ["10.0.100.0/24", "10.0.101.0/24"]
 
-  public_dedicated_network_acl = true
-  public_inbound_acl_rules     = concat(local.network_acls["public_subnet_inbound"], local.network_acls["default_subnet_inbound"])
-  public_outbound_acl_rules    = concat(local.network_acls["public_subnet_outbound"], local.network_acls["default_subnet_outbound"])
+  # TODO: conflicting with eks deployment, so sticking to default vpc acl for private and public subnets
+  # public_dedicated_network_acl = true
+  # public_inbound_acl_rules     = concat(local.network_acls["public_subnet_inbound"], local.network_acls["default_subnet_inbound"])
+  # public_outbound_acl_rules    = concat(local.network_acls["public_subnet_outbound"], local.network_acls["default_subnet_outbound"])
 
-  private_dedicated_network_acl = true
-  private_inbound_acl_rules     = concat(local.network_acls["private_subnet_inbound"], local.network_acls["default_subnet_inbound"])
-  private_outbound_acl_rules    = concat(local.network_acls["private_subnet_outbound"], local.network_acls["default_subnet_outbound"])
+  # private_dedicated_network_acl = true
+  # private_inbound_acl_rules     = concat(local.network_acls["private_subnet_inbound"], local.network_acls["default_subnet_inbound"])
+  # private_outbound_acl_rules    = concat(local.network_acls["private_subnet_outbound"], local.network_acls["default_subnet_outbound"])
 
   database_dedicated_network_acl = var.create_database_instance ? true : false
   database_inbound_acl_rules = var.create_database_instance ? (
@@ -264,16 +249,22 @@ module "vpc" {
     ) : concat(local.network_acls["database_subnet_outbound"], local.network_acls["default_subnet_outbound"])
   ) : null
 
-  # enable one nat gateway per availability zone
-  enable_nat_gateway     = true
-  single_nat_gateway     = false
-  one_nat_gateway_per_az = true
+  enable_nat_gateway = true
+  single_nat_gateway = true
 
   enable_dns_support   = true
   enable_dns_hostnames = true
 
   create_database_subnet_route_table     = var.create_database_instance && var.enable_database_public_access ? true : false
   create_database_internet_gateway_route = var.create_database_instance && var.enable_database_public_access ? true : false
+
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = 1
+  }
+
+  public_subnet_tags = {
+    "kubernetes.io/role/elb" = 1
+  }
 
   tags = local.tags
 }
@@ -290,10 +281,14 @@ output "vpc_default_security_group_id" {
   value = module.vpc.default_security_group_id
 }
 
-output "private_subnets"{
+output "private_subnets" {
   value = module.vpc.private_subnets
 }
 
-output "public_subnets"{
+output "public_subnets" {
   value = module.vpc.public_subnets
+}
+
+output "vpc_id" {
+  value = module.vpc.vpc_id
 }

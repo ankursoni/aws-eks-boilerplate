@@ -1,6 +1,6 @@
 module "rds_security_group" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "4.9.0"
+  version = "~> 4.9.0"
 
   use_name_prefix = false
   name            = "${var.prefix}-${var.environment}-rdssg"
@@ -10,11 +10,11 @@ module "rds_security_group" {
   ingress_with_cidr_blocks = [
     {
       rule        = "mysql-tcp"
-      cidr_blocks = "${chomp(data.http.myip.body)}/32" # your ip address
+      cidr_blocks = "0.0.0.0/0" # TODO: not working for eks pods - "${chomp(data.http.myip.body)}/32" # your ip address
     },
   ]
 
-  count = var.enable_database_public_access ? 1 : 0
+  count = var.create_database_instance && var.enable_database_public_access ? 1 : 0
 
   tags = {
     managed-by  = "terraform"
@@ -23,7 +23,7 @@ module "rds_security_group" {
 }
 
 output "rds_security_group_id" {
-  value = var.enable_database_public_access ? module.rds_security_group[0].security_group_id : null
+  value = var.create_database_instance && var.enable_database_public_access ? module.rds_security_group[0].security_group_id : null
 }
 
 module "public_bastion_security_group" {
@@ -42,6 +42,8 @@ module "public_bastion_security_group" {
     },
   ]
 
+  count = var.create_bastion ? 1 : 0
+
   tags = {
     managed-by  = "terraform"
     environment = var.environment
@@ -49,5 +51,5 @@ module "public_bastion_security_group" {
 }
 
 output "public_bastion_security_group_id" {
-  value = module.public_bastion_security_group.security_group_id
+  value = var.create_bastion ? module.public_bastion_security_group[0].security_group_id : null
 }

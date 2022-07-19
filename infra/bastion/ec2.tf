@@ -7,7 +7,7 @@ locals {
 
 module "private_ec2_instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "4.0.0"
+  version = "~> 4.0.0"
 
   name = "private-bastion"
 
@@ -22,7 +22,7 @@ module "private_ec2_instance" {
 
 module "public_ec2_instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "4.0.0"
+  version = "~> 4.0.0"
 
   name = "public-bastion"
 

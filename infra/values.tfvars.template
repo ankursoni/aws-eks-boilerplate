@@ -9,6 +9,9 @@ database_masterdb_username="demouser"
 database_masterdb_password="demopassword"
 
 create_s3_bucket=true
-s3_bucket_name="demo-s3"
+s3_bucket_name="eks-demo-s3"
 
+create_bastion=true
 bastion_key_pair_name="access_key"
+
+create_eks_cluster=true

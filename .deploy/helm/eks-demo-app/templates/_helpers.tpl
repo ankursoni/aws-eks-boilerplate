@@ -65,7 +65,7 @@ Create the name of the service account to use
 # Redis
 
 {{- define "redis.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}-redis
+{{ include "eks-demo-app.name" . -}}-redis
 {{- end }}
 
 {{- define "redis.fullname" -}}

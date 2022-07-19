@@ -7,7 +7,7 @@ locals {
 
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "4.6.0"
+  version = "~> 4.6.0"
 
   vpc_security_group_ids = var.vpc_security_group_ids
   db_subnet_group_name   = var.database_subnet_group_name

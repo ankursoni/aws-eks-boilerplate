@@ -1,2 +1,11 @@
+variable "region" {}
 variable "prefix" {}
 variable "environment" {}
+variable "eks_kubernetes_version" {}
+variable "vpc_id" {}
+variable "subnets" {}
+variable "eks_managed_instance_min_size" {}
+variable "eks_managed_instance_max_size" {}
+variable "eks_managed_instance_desired_size" {}
+variable "eks_managed_instance_types" {}
+variable "eks_managed_capacity_type" {}
