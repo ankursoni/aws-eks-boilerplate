@@ -18,9 +18,10 @@ serviceAccount:
   # Specifies whether a service account should be created
   create: false
   # Annotations to add to the service account
-  annotations: {}
+  annotations:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
+    # eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-secrets-manager-role
   name: ""
 
 podAnnotations: {}
@@ -37,19 +38,29 @@ securityContext: {}
   # runAsUser: 1000
 
 env:
-  # - name: DB_CONNECTION_URL
-  #   value: "mysql+mysqldb://user1:password1@host.docker.internal/demodb"
-  #   #value: "mysql+mysqldb://user1:password1@demo-database.cduk3y1m9z90.ap-southeast-2.rds.amazonaws.com/demodb"
   # - name: AWS_REGION
   #   value: "<AWS REGION>"
   # - name: AWS_S3_BUCKET
   #   value: "<AWS S3 BUCKET>"
+  # - name: REDIS_HOST
+  #   value: "eks-demo-app-redis"
+
+secretEnv:
+  # - name: DB_CONNECTION_URL
+  #   value: "mysql+mysqldb://<DATABASE_MASTERDB_USERNAME>:<DATABASE_MASTERDB_PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
   # - name: AWS_ACCESS_KEY_ID
   #   value: "<AWS ACCESS KEY ID>"
   # - name: AWS_SECRET_ACCESS_KEY
   #   value: "<AWS SECRET ACCESS KEY>"
-  # - name: REDIS_HOST
-  #   value: "eks-demo-app-redis"
+
+awsCloudWatch:
+  enabled: false
+  awsRegion: "<AWS REGION>"
+  eksClusterName: "<EKS CLUSTER NAME>"
+
+awsSecretsManager:
+  enabled: false
+  awsSecretName: "<AWS SECRET NAME>"
 
 securityGroup:
   enabled: false
@@ -62,9 +73,10 @@ service:
 ingress:
   enabled: false
   className: ""
-  annotations: #{}
+  annotations:
     kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
+    # eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-aws-load-balanacer-role
   hosts:
     - host: chart-example.local
       paths:

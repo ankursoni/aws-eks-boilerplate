@@ -15,3 +15,4 @@ create_bastion=true
 bastion_key_pair_name="access_key"
 
 create_eks_cluster=true
+eks_managed_capacity_type="SPOT"

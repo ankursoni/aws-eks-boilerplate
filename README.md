@@ -9,75 +9,6 @@
 > AWS EKS Boilerplate
 
 
-## Install infrastructure on aws
-
-### Pre-requisites
-- Install terraform: https://www.terraform.io/downloads
-
-### Create 'values.tfvars' file
-```sh
-cd infra
-
-# copy the .tfvars template to values.tfvars
-cp values.tfvars.template values.tfvars
-
-# update the 'values.tfvars' file like the following, where,
-# - 'region' is the aws region code for e.g. ap-southeast-2
-# - 'prefix' is the prefix for naming resources for e.g. aws-eks-boilerplate
-# - 'environment' is the middle name for naming resources for e.g. demo
-
-# - 'create_database_instance' is true / false for creating the rds database instance
-# - 'enable_database_public_access' is true / false for enabling public access to the rds database instance (which is given to user's public ip address who is running the terraform script)
-# - 'database_instance_name' is rds database instance name for e.g. demo-database
-# - 'database_masterdb_username' is rds database masterdb username for e.g. demouser
-# - 'database_masterdb_password' is rds database masterdb password for e.g. demouser
-
-# - 'create_s3_bucket' is true / false for creating the s3 bucket
-# - 's3_bucket_name' is the globally unique s3 bucket name for e.g. demo-s3-t1234
-
-# - bastion_key_pair_name is the name of key pair used by ec2 instance for ssh into bastion hosts for e.g. access_key. This has to be created beforehand by the user: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
-```
-
-### Run terraform
-```sh
-cd infra
-
-terraform init
-
-terraform apply -var-file=values.tfvars
-
-# delete all resources created by terraform
-terraform destroy -var-file=values.tfvars
-```
-
-### Access RDS database instance from bastion hosts
-
-If the user has not enabled 'enable_database_public_access' then, the rds database instance is only accessible to the bastion host running inside the private subnet. And the bastion host running inside private subnet is only accessible to the bastion host running inside the public subnet.
-
-```sh
-# assuming you have created 'bastion_key_pair_name' as 'access_key' and downloaded key pair to ~/Downloads folder
-chmod 0700 ~/Downloads/access_key.pem
-
-# copy key pair inside public bastion host
-scp -i ~/Downloads/access_key.pem ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>:~
-
-# ssh into public bastion host
-ssh -i ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>
-
-# ssh into private bastion host from inside public bastion host
-ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
-
-# install mysql using yum
-sudo yum upgrade
-sudo yum install mysql
-
-# connect to rds and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
-mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
-
-# press ctrl+d multiple times to exit
-```
-
-
 ## Install demo app
 
 ### Pre-requisites
@@ -112,7 +43,11 @@ pylint ./demo
 
 ### Setup demodb database with user
 ```sh
-# assuming you have a mysql instance running locally or on aws rds
+# assuming you have a mysql instance running locally
+
+# connect to mysql instance and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
+mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+
 # run the following scripts by replacing:
 # - 'user1' with <username>
 # - 'password1' with <password>
@@ -124,6 +59,13 @@ create user if not exists user1@localhost identified by 'password1';
 grant all on demodb.* to user1@localhost;
 ```
 
+### Setup s3 bucket with access credentials
+Create or reuse an S3 bucket with a user credential
+that is assigned an IAM policy that allows read from the s3 bucket and its objects.  
+Follow step 1 from
+https://www.gormanalysis.com/blog/connecting-to-aws-s3-with-python/#1-set-up-credentials-to-connect-python-to-s3  
+Finally, upload the file - 'demo/data/s3_demo.txt' to the s3 bucket
+
 ### Setup redis with key/value pair
 ```sh
 # assuming you have a redis server running locally
@@ -133,14 +75,7 @@ redis-cli
 set demo "This is a demo text from redis!"
 ```
 
-### Setup s3 bucket with access credentials
-Create or reuse an S3 bucket with a user credential
-that is assigned an IAM policy that allows read from the s3 bucket and its objects.  
-Follow step 1 from
-https://www.gormanalysis.com/blog/connecting-to-aws-s3-with-python/#1-set-up-credentials-to-connect-python-to-s3  
-Finally, upload the file - 'demo/data/s3_demo.txt' to the s3 bucket
-
-### Install
+### Install demo web api locally
 1. Run as web api server:
 ```sh
 # run the database migrations
@@ -280,7 +215,7 @@ cd .deploy/helm
 cat eks-demo-app/values.yaml
 # modify the value for 'image.repository' assuming image tag to be 'app'
 docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo
-# additionally, you may need to modify the values 'env'
+# additionally, you may need to modify the values 'env' and 'secretEnv'
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
@@ -305,7 +240,7 @@ This is a demo text file from s3!
 curl http://localhost:8080/redis
 This is a demo text from redis!
 
-# stop and remove helm chart and namespace
+# if you want to stop and remove helm chart and namespace
 helm uninstall eks-demo-app -n eks-demo
 kubectl delete namespace eks-demo
 ```
@@ -372,6 +307,280 @@ curl http://localhost:8080/redis
 This is a demo text from redis!
 ```
 
+
+## Install on AWS
+
+### Pre-requisites
+- Install terraform: https://www.terraform.io/downloads
+
+### Create 'values.tfvars' file
+```sh
+cd infra
+
+# copy the .tfvars template to values.tfvars
+cp values.tfvars.template values.tfvars
+
+# update the 'values.tfvars' file like the following, where,
+# - 'region' is the aws region code for e.g. ap-southeast-2
+# - 'prefix' is the prefix for naming resources for e.g. aws-eks-boilerplate
+# - 'environment' is the middle name for naming resources for e.g. demo
+
+# - 'create_database_instance' is true / false for creating the rds database instance
+# - 'enable_database_public_access' is true / false for enabling public access to the rds database instance (which is given to user's public ip address who is running the terraform script)
+# - 'database_instance_name' is rds database instance name for e.g. demo-database
+# - 'database_masterdb_username' is rds database masterdb username for e.g. demouser
+# - 'database_masterdb_password' is rds database masterdb password for e.g. demouser
+
+# - 'create_s3_bucket' is true / false for creating the s3 bucket
+# - 's3_bucket_name' is the globally unique s3 bucket name for e.g. demo-s3-t1234
+
+# - 'create_bastion' is true / false for creating the bastion hosts i.e. ec2 instances in private and public subnets
+# - bastion_key_pair_name is the name of key pair used by ec2 instance for ssh into bastion hosts for e.g. access_key. This has to be created beforehand by the user: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
+
+# - 'create_eks_cluster' is true / false for creating the eks cluster
+# - 'eks_managed_capacity_type' is either 'SPOT' or 'ON_DEMAND' (default)
+
+```
+
+### Run terraform
+```sh
+cd infra
+
+terraform init
+
+terraform apply -var-file=values.tfvars
+
+# if you want to delete all resources created by terraform
+terraform destroy -var-file=values.tfvars
+```
+
+### Access RDS database instance from bastion hosts
+
+If the user has not enabled 'enable_database_public_access' then, the rds database instance is only accessible to the bastion host running inside the private subnet. And the bastion host running inside private subnet is only accessible to the bastion host running inside the public subnet.
+
+```sh
+# assuming you have created 'bastion_key_pair_name' as 'access_key' and downloaded key pair to ~/Downloads folder
+chmod 0700 ~/Downloads/access_key.pem
+
+# copy key pair inside public bastion host
+scp -i ~/Downloads/access_key.pem ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>:~
+
+# ssh into public bastion host
+ssh -i ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>
+
+# ssh into private bastion host from inside public bastion host
+ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
+
+# install mysql using yum
+sudo yum upgrade
+sudo yum install mysql
+
+# connect to rds and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
+mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+
+# press ctrl+d multiple times to exit
+```
+
+### Setup demodb database with user on RDS
+```sh
+# connect to mysql instance and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
+# refer to terraform - values.tfvars for <DATABASE_MASTERDB_USERNAME>
+mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+
+# run the following scripts by replacing:
+# - 'user1' with <username>
+# - 'password1' with <password>
+create database if not exists demodb;
+
+create user if not exists user1 identified by 'password1';
+
+grant all on demodb.* to user1;
+
+# press ctrl+d to exit
+```
+
+### Setup s3 bucket with access credentials
+Create or reuse an S3 bucket with a user credential
+that is assigned an IAM policy that allows read from the s3 bucket and its objects.  
+Follow step 1 from
+https://www.gormanalysis.com/blog/connecting-to-aws-s3-with-python/#1-set-up-credentials-to-connect-python-to-s3  
+Finally, upload the file - 'demo/data/s3_demo.txt' to the s3 bucket
+
+### Install on AWS EKS
+```sh
+# change directory to demo
+cd demo
+
+# build docker image
+# --build-arg DB_CONNECTION_URL = database connection url for use by sql alchemy and alembic
+# using 'host.docker.internal' as database server to reach out to local mysql running on host
+# --build-arg DB_CONNECTION_URL = database connection url for use by sql alchemy and alembic
+# --build-arg REDIS_HOST = redis server host
+# --build-arg AWS_REGION = aws region code like 'ap-southeast-2'
+# --build-arg AWS_S3_BUCKET = aws s3 bucket name
+# --build-arg AWS_ACCESS_KEY_ID = aws user credential access key id
+# --build-arg AWS_SECRET_ACCESS_KEY = aws user credential secret access key
+docker build \
+	--build-arg DB_CONNECTION_URL="mysql+mysqldb://user1:password1@host.docker.internal/demodb" \
+	--build-arg AWS_REGION="<AWS REGION>" \
+	--build-arg AWS_S3_BUCKET="<AWS S3 BUCKET>" \
+	--build-arg AWS_ACCESS_KEY_ID="<AWS ACCESS KEY ID>" \
+	--build-arg AWS_SECRET_ACCESS_KEY="<AWS SECRET ACCESS KEY>" \
+	--build-arg REDIS_HOST="host.docker.internal" \
+	-t eks-demo:app --platform linux/amd64 .
+
+# tag docker image and push to your container repository in docker hub
+docker tag eks-demo:app docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo:app
+docker push docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo:app
+
+# update kube config with eks cluster context
+aws eks list-clusters --region <AWS REGION>
+aws eks update-kubeconfig --name <EKS_CUSTER_NAME> --region <AWS REGION>
+# where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT> and <AWS REGION>
+```
+
+### Install AWS Secrets Manager and Config Provider for Secret Store CSI Driver
+Reference:
+- https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html
+- https://github.com/aws/secrets-store-csi-driver-provider-aws
+```sh
+# create demo secret in aws secrets manager
+aws --region <AWS REGION> secretsmanager create-secret --name demo-secret01 --secret-string '{"username":"user1", "password":"password1"}'
+# refer to terraform - values.tfvars for <AWS REGION>
+
+# install secrets store csi driver helm chart
+helm install secrets-store-csi-driver secrets-store-csi-driver \
+  --repo https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts \
+  -n kube-system
+```
+
+### Install cert-manager for free TLS certificates from letsencrypt.org
+Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
+```sh
+# install cert-manager crds
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.crds.yaml
+
+# install cert-manager helm chart
+helm install cert-manager cert-manager \
+	--repo https://charts.jetstack.io \
+	-n cert-manager --create-namespace \
+	--version v1.8.2
+```
+
+### Install AWS Load Balancer
+Reference: https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
+```sh
+# install aws load balancer controller crds
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+
+# install aws load balancer controller helm chart
+helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
+	--repo https://aws.github.io/eks-charts \
+	-n kube-system --set clusterName=<EKS CLUSTER NAME> \
+	--set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller \
+	--set enableCertManager=true --set region=<AWS REGION> \
+	--set vpcId=<VPC ID> --set enableWafv2=true
+# where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+# where <VPC ID> can be found from AWS console
+```
+
+### Install demo web api on eks
+```sh
+# upgrade or install helm chart, if not preset
+cd .deploy/helm
+
+# check the values file for the helm chart
+cat eks-demo-app/values.yaml
+# modify the value for 'image.repository' assuming image tag to be 'app':
+# image:
+#   repository: docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo
+
+# next, modify the values in 'serviceAccount':
+# serviceAccount:
+#   create: true
+#   annotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eksawssecretsmanagerrole
+# where <AWS ACCOUNT ID> can be found from AWS console
+
+# next, modify the values in 'env' and 'secretEnv' by uncommenting
+# and populating the - 'value' fields, for example:
+# secretEnv:
+#   - name: name: DB_CONNECTION_URL
+#     value: "mysql+mysqldb://<DATABASE_MASTERDB_USERNAME>:<DATABASE_MASTERDB_PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+# refer to terraform - values.tfvars for <DATABASE_MASTERDB_USERNAME> and <DATABASE_MASTERDB_PASSWORD>
+# where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
+
+# next, modify the values in 'awsCloudWatch':
+# awsCloudWatch:
+#   enabled: true
+#   awsRegion: "<AWS REGION>"
+#   eksClusterName: "<EKS CLUSTER NAME>"
+# where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+
+# next, modify the values in 'awsSecretsManager':
+# awsSecretsManager:
+#   enabled: true
+#   awsSecretName: "<AWS SECRET NAME>"
+# where <AWS SECRET NAME> is "demo-secret01"
+
+# TODO: AWS Load Balancer controller config
+
+# install/upgrade helm chart
+helm upgrade -i eks-demo-app eks-demo-app \
+	-n eks-demo --create-namespace
+
+# list helm charts
+helm list -A
+
+# port forward to kubernetes demo app service
+kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
+
+# curl to hit demo api
+curl http://localhost:8080
+Welcome to demo api!
+
+curl http://localhost:8080/rds
+[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+
+curl http://localhost:8080/s3
+This is a demo text file from s3!
+
+# port forward to eks redis service
+kubectl --namespace eks-demo port-forward svc/eks-demo-app-redis 63790:6379
+
+# connect to kubernetes redis service
+redis-cli -p 63790
+
+# set value for key - 'demo'
+set demo "This is a demo text from eks redis!"
+
+# press ctrl+d to exit
+```
+Edit the 'values.yaml' file in .deploy/helm/eks-demo-app/values.yaml
+to uncomment the following section under 'env:'
+```yaml
+  - name: REDIS_HOST
+    value: "eks-demo-app-redis"
+```
+```sh
+# install/upgrade helm chart
+helm upgrade -i eks-demo-app eks-demo-app \
+	-n eks-demo --create-namespace
+
+# port forward to kubernetes demo app service
+kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
+
+curl http://localhost:8080/redis
+This is a demo text from eks redis!
+
+# if you want to stop and remove helm chart and namespace
+helm uninstall eks-demo-app -n eks-demo
+kubectl delete namespace eks-demo
+```
+
+### Monitor on AWS CloudWatch
+Navigate to 'CloudWatch on AWS console:
+Check application logs under 'Log groups' - /aws/containerinsights/<EKS CLUSTER NAME>/application.
 
 ## Authors
 

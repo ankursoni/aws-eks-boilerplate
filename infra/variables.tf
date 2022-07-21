@@ -18,7 +18,7 @@ variable "database_engine" {
   default = "mysql"
 }
 variable "database_engine_version" {
-  default = "8.0.29"
+  default = "8.0.28"
 }
 variable "database_db_parameter_group_family" {
   default = "mysql8.0"
