@@ -192,13 +192,13 @@ resource "aws_iam_role" "ekslbrole" {
     ]
   })
 }
-resource "aws_iam_policy" "eksalbpolicy" {
-  name   = "eks-eksalbpolicy-policy"
-  policy = file("${path.module}/iam_alb_policy.json")
+resource "aws_iam_policy" "ekslbpolicy" {
+  name   = "eks-lb-policy"
+  policy = file("${path.module}/eks_lb_policy.json")
 }
-resource "aws_iam_role_policy_attachment" "eksiamalbroleattachment" {
+resource "aws_iam_role_policy_attachment" "ekslbroleattachment" {
   role       = aws_iam_role.ekslbrole.name
-  policy_arn = aws_iam_policy.eksalbpolicy.arn
+  policy_arn = aws_iam_policy.ekslbpolicy.arn
 }
 
 data "aws_caller_identity" "current" {}

@@ -139,16 +139,16 @@ python -m demo.app --debug-mode true
 
 # curl to hit demo api
 curl http://localhost:8080
-Welcome to demo api!
+>>> Welcome to demo api!
 
 curl http://localhost:8080/rds
-[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+>>> [{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
 
 curl http://localhost:8080/s3
-This is a demo text file from s3!
+>>> This is a demo text file from s3!
 
 curl http://localhost:8080/redis
-This is a demo text from redis!
+>>> This is a demo text from redis!
 ```
 
 2. Or, build and run in docker container:
@@ -186,16 +186,16 @@ docker logs eks-demo-app
 
 # curl to hit demo api
 curl http://localhost:8080
-Welcome to demo api!
+>>> Welcome to demo api!
 
 curl http://localhost:8080/rds
-[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+>>> [{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
 
 curl http://localhost:8080/s3
-This is a demo text file from s3!
+>>> This is a demo text file from s3!
 
 curl http://localhost:8080/redis
-This is a demo text from redis!
+>>> This is a demo text from redis!
 
 # stop and remove docker container
 docker stop eks-demo-app
@@ -229,16 +229,16 @@ kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
 
 # curl to hit demo api
 curl http://localhost:8080
-Welcome to demo api!
+>>> Welcome to demo api!
 
 curl http://localhost:8080/rds
-[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+>>> [{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
 
 curl http://localhost:8080/s3
-This is a demo text file from s3!
+>>> This is a demo text file from s3!
 
 curl http://localhost:8080/redis
-This is a demo text from redis!
+>>> This is a demo text from redis!
 
 # if you want to stop and remove helm chart and namespace
 helm uninstall eks-demo-app -n eks-demo
@@ -271,7 +271,7 @@ helm upgrade -i eks-demo-app eks-demo-app \
 kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
 
 curl http://localhost:8080/redis
-This is a demo text from k8s redis!
+>>> This is a demo text from k8s redis!
 ```
 
 ### Run tests
@@ -286,25 +286,25 @@ When running as an api, use the following endpoints:
 ```sh
 # example
 curl http://localhost:8080/
-Welcome to demo api!
+>>> Welcome to demo api!
 ```
 2. 'http://`{domain name}:{port}`/rds' reading from rds database.
 ```sh
 # example
 curl http://localhost:8080/rds
-[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+>>> [{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
 ```
 3. 'http://`{domain name}:{port}`/s3' reading from s3.
 ```sh
 # example
 curl http://localhost:8080/s3
-This is a demo text file from s3!
+>>> This is a demo text file from s3!
 ```
 4. 'http://`{domain name}:{port}`/redis' reading from redis.
 ```sh
 # example
 curl http://localhost:8080/redis
-This is a demo text from redis!
+>>> This is a demo text from redis!
 ```
 
 
@@ -327,6 +327,10 @@ cp values.tfvars.template values.tfvars
 
 # - 'create_database_instance' is true / false for creating the rds database instance
 # - 'enable_database_public_access' is true / false for enabling public access to the rds database instance (which is given to user's public ip address who is running the terraform script)
+# TODO:
+# - an issue is preventing pods to access rds instance, if the setting 'enable_database_public_access' is not true
+# - an issue is preventing user's public ip address to be mapped to security group and still be accessible from eks pods
+
 # - 'database_instance_name' is rds database instance name for e.g. demo-database
 # - 'database_masterdb_username' is rds database masterdb username for e.g. demouser
 # - 'database_masterdb_password' is rds database masterdb password for e.g. demouser
@@ -450,8 +454,8 @@ aws --region <AWS REGION> secretsmanager create-secret --name demo-secret01 --se
 
 # install secrets store csi driver helm chart
 helm install secrets-store-csi-driver secrets-store-csi-driver \
-  --repo https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts \
-  -n kube-system
+	--repo https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts \
+	-n kube-system
 ```
 
 ### Install cert-manager for free TLS certificates from letsencrypt.org
@@ -537,13 +541,13 @@ kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
 
 # curl to hit demo api
 curl http://localhost:8080
-Welcome to demo api!
+>>> Welcome to demo api!
 
 curl http://localhost:8080/rds
-[{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
+>>> [{"id": 1, "description": "demo1"}, {"id": 2, "description": "demo2"}]
 
 curl http://localhost:8080/s3
-This is a demo text file from s3!
+>>> This is a demo text file from s3!
 
 # port forward to eks redis service
 kubectl --namespace eks-demo port-forward svc/eks-demo-app-redis 63790:6379
@@ -571,7 +575,23 @@ helm upgrade -i eks-demo-app eks-demo-app \
 kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
 
 curl http://localhost:8080/redis
-This is a demo text from eks redis!
+>>> This is a demo text from eks redis!
+
+# check the aws secrets manager secret mount in the pod
+kubectl --namespace eks-demo get pods
+
+# replace eks-demo-app-5db9bbf7b9-5v756 by the pod name in the result above
+kubectl --namespace eks-demo exec -it eks-demo-app-5db9bbf7b9-5v756 -- bash
+
+# check the mount directory for the secret coming from aws secrets manager
+cd /mnt/secrets-store
+
+# list directory
+ls -la
+
+# extract secret
+cat demo-secret01
+>>> {"username":"user1", "password":"password1"}
 
 # if you want to stop and remove helm chart and namespace
 helm uninstall eks-demo-app -n eks-demo
