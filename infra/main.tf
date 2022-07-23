@@ -66,6 +66,7 @@ module "cluster" {
   prefix                            = var.prefix
   environment                       = var.environment
   vpc_id                            = module.network.vpc_id
+  vpc_security_group_ids            = [module.network.vpc_default_security_group_id]
   subnets                           = concat(module.network.private_subnets, module.network.public_subnets)
   eks_kubernetes_version            = var.eks_kubernetes_version
   eks_managed_instance_min_size     = var.eks_managed_instance_min_size

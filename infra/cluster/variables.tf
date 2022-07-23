@@ -3,6 +3,7 @@ variable "prefix" {}
 variable "environment" {}
 variable "eks_kubernetes_version" {}
 variable "vpc_id" {}
+variable "vpc_security_group_ids" {}
 variable "subnets" {}
 variable "eks_managed_instance_min_size" {}
 variable "eks_managed_instance_max_size" {}

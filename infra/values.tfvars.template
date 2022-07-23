@@ -3,7 +3,7 @@ prefix="aws-eks-boilerplate"
 environment="demo"
 
 create_database_instance=true
-enable_database_public_access=true
+enable_database_public_access=false
 database_instance_name="demo-database"
 database_masterdb_username="demouser"
 database_masterdb_password="demopassword"
@@ -15,4 +15,5 @@ create_bastion=true
 bastion_key_pair_name="access_key"
 
 create_eks_cluster=true
+eks_managed_instance_types=["t3.medium"]
 eks_managed_capacity_type="SPOT"

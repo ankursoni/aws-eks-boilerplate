@@ -9,7 +9,7 @@
 > AWS EKS Boilerplate
 
 
-## Install demo app
+## Install demo app locally
 
 ### Pre-requisites
 - Install python 3.9.13: https://www.python.org/downloads/release/python-3913/
@@ -18,6 +18,7 @@
 - Install docker desktop: https://docs.docker.com/get-docker/
 - Install local kubernetes by docker desktop: https://docs.docker.com/desktop/kubernetes/
 - Install helm: https://helm.sh/docs/intro/install/
+- Install aws cli: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
 ### Setup demo app
 ```sh
@@ -327,9 +328,6 @@ cp values.tfvars.template values.tfvars
 
 # - 'create_database_instance' is true / false for creating the rds database instance
 # - 'enable_database_public_access' is true / false for enabling public access to the rds database instance (which is given to user's public ip address who is running the terraform script)
-# TODO:
-# - an issue is preventing pods to access rds instance, if the setting 'enable_database_public_access' is not true
-# - an issue is preventing user's public ip address to be mapped to security group and still be accessible from eks pods
 
 # - 'database_instance_name' is rds database instance name for e.g. demo-database
 # - 'database_masterdb_username' is rds database masterdb username for e.g. demouser
@@ -348,10 +346,13 @@ cp values.tfvars.template values.tfvars
 
 ### Run terraform
 ```sh
+# change directory to infra
 cd infra
 
+# initialise providers and modules
 terraform init
 
+# install infrastructure
 terraform apply -var-file=values.tfvars
 
 # if you want to delete all resources created by terraform
@@ -359,7 +360,6 @@ terraform destroy -var-file=values.tfvars
 ```
 
 ### Access RDS database instance from bastion hosts
-
 If the user has not enabled 'enable_database_public_access' then, the rds database instance is only accessible to the bastion host running inside the private subnet. And the bastion host running inside private subnet is only accessible to the bastion host running inside the public subnet.
 
 ```sh
@@ -378,6 +378,8 @@ ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
 # install mysql using yum
 sudo yum upgrade
 sudo yum install mysql
+# or
+sudo yum install mariadb105
 
 # connect to rds and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
 mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
@@ -390,6 +392,7 @@ mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
 # connect to mysql instance and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
 # refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME>
 mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+# where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
 
 # run the following scripts by replacing:
 # - 'user1' with <username>
@@ -422,8 +425,8 @@ cd demo
 # --build-arg REDIS_HOST = redis server host
 # --build-arg AWS_REGION = aws region code like 'ap-southeast-2'
 # --build-arg AWS_S3_BUCKET = aws s3 bucket name
-# --build-arg AWS_ACCESS_KEY_ID = aws user credential access key id
-# --build-arg AWS_SECRET_ACCESS_KEY = aws user credential secret access key
+# --build-arg AWS_ACCESS_KEY_ID = aws user credential access key id (optional as it can be overriden via secret environment)
+# --build-arg AWS_SECRET_ACCESS_KEY = aws user credential secret access key (optional as it can be overriden via secret environment)
 docker build \
 	--build-arg DB_CONNECTION_URL="mysql+mysqldb://user1:password1@host.docker.internal/demodb" \
 	--build-arg AWS_REGION="<AWS REGION>" \
@@ -456,23 +459,9 @@ aws --region <AWS REGION> secretsmanager create-secret --name demo-secret01 --se
 helm install secrets-store-csi-driver secrets-store-csi-driver \
 	--repo https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts \
 	-n kube-system
-```
 
-### Install cert-manager for free TLS certificates from letsencrypt.org
-Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
-```sh
-# install cert-manager crds
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.crds.yaml
-
-# install cert-manager helm chart
-helm install cert-manager cert-manager \
-	--repo https://charts.jetstack.io \
-	-n cert-manager --create-namespace \
-	--version v1.8.2
-
-# if you want to stop and remove helm chart and namespace
-helm uninstall cert-manager -n cert-manager
-kubectl delete namespace cert-manager
+# if you want to stop and remove helm chart
+helm uninstall secrets-store-csi-driver -n kube-system
 ```
 
 ### Install demo web api on eks
@@ -497,8 +486,8 @@ cat eks-demo-app/values.yaml
 # and populating the - 'value' fields, for example:
 # secretEnv:
 #   - name: name: DB_CONNECTION_URL
-#     value: "mysql+mysqldb://<DATABASE_MASTERDB_USERNAME>:<DATABASE_MASTERDB_PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
-# refer to terraform - values.tfvars for <DATABASE_MASTERDB_USERNAME> and <DATABASE_MASTERDB_PASSWORD>
+#     value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+# refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME> and <DATABASE MASTERDB PASSWORD>
 # where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
 
 # next, modify the values in 'awsCloudWatch':
@@ -513,6 +502,13 @@ cat eks-demo-app/values.yaml
 #   enabled: true
 #   awsSecretName: "<AWS SECRET NAME>"
 # where <AWS SECRET NAME> is "demo-secret01"
+
+# next, modify the values in 'awsLoadBalancerController':
+# awsLoadBalancerController:
+#   enabled: true
+#   serviceAccountAnnotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
+# where <AWS ACCOUNT ID> can be found from AWS console
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
@@ -544,17 +540,6 @@ redis-cli -p 63790
 set demo "This is a demo text from eks redis!"
 
 # press ctrl+d to exit
-```
-Edit the 'values.yaml' file in .deploy/helm/eks-demo-app/values.yaml
-to uncomment the following section under 'env:'
-```yaml
-  - name: REDIS_HOST
-    value: "eks-demo-app-redis"
-```
-```sh
-# install/upgrade helm chart
-helm upgrade -i eks-demo-app eks-demo-app \
-	-n eks-demo --create-namespace
 
 # port forward to kubernetes demo app service
 kubectl --namespace eks-demo port-forward svc/eks-demo-app 8080:8080
@@ -565,8 +550,8 @@ curl http://localhost:8080/redis
 # check the aws secrets manager secret mount in the pod
 kubectl --namespace eks-demo get pods
 
-# replace eks-demo-app-5db9bbf7b9-5v756 by the pod name in the result above
-kubectl --namespace eks-demo exec -it eks-demo-app-5db9bbf7b9-5v756 -- bash
+# replace eks-demo-app-5db9bbf7b9-p8jt4 by the pod name in the result above
+kubectl --namespace eks-demo exec -it eks-demo-app-5db9bbf7b9-p8jt4 -- bash
 
 # check the mount directory for the secret coming from aws secrets manager
 cd /mnt/secrets-store
@@ -577,16 +562,35 @@ ls -la
 # extract secret
 cat demo-secret01
 >>> {"username":"user1", "password":"password1"}
+
+# press ctrl+d to exit
 ```
 
-### Install AWS Load Balancer
+### Install cert-manager for free TLS certificates from letsencrypt.org
+Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
+```sh
+# install cert-manager crds
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.crds.yaml
+
+# install cert-manager helm chart
+helm install cert-manager cert-manager \
+	--repo https://charts.jetstack.io \
+	-n cert-manager --create-namespace \
+	--version v1.8.2
+
+# if you want to stop and remove helm chart and namespace
+helm uninstall cert-manager -n cert-manager
+kubectl delete namespace cert-manager
+```
+
+### Install AWS Load Balancer after cert-manager is installed
 Reference:
 - https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
 - https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
 - https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
 ```sh
 # install aws load balancer controller crds
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
 
 # install aws load balancer controller helm chart
 helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
@@ -597,12 +601,13 @@ helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
 	--set vpcId=<VPC ID> --set enableWafv2=true
 # where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
 # where <VPC ID> can be found from AWS console
+# check more options like '--set enableWafv2' in https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
 
 # if you want to stop and remove helm chart
 helm uninstall aws-load-balancer-controller -n kube-system
 ```
 
-### Upgrade demo web api to use AWS Load Balancer
+### Upgrade demo web api to use ingress via AWS Load Balancer
 ```sh
 # change directory to .deploy/helm
 cd .deploy/helm
@@ -615,13 +620,6 @@ cat eks-demo-app/values.yaml
 #   hosts:
 #     - host: chart-example.local
 # you may need to update the host 'chart-example.local' to any domain that you own
-
-# next, modify the values in 'awsLoadBalancerController':
-# awsLoadBalancerController:
-#   enabled: true
-#   serviceAccountAnnotations:
-#     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
-# where <AWS ACCOUNT ID> can be found from AWS console
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \

@@ -79,11 +79,23 @@ resource "aws_eks_cluster" "eks01" {
   ]
 }
 
+resource "aws_launch_template" "ekslaunchtemplate" {
+  name                   = "eks-managed-launchtemplate"
+  vpc_security_group_ids = concat(var.vpc_security_group_ids, [aws_eks_cluster.eks01.vpc_config[0].cluster_security_group_id])
+
+  tags = local.tags
+}
+
 resource "aws_eks_node_group" "eksng01" {
   cluster_name    = aws_eks_cluster.eks01.name
   node_group_name = "eks-managed"
   node_role_arn   = aws_iam_role.eks-node-role.arn
   subnet_ids      = var.subnets
+
+  launch_template {
+    id      = aws_launch_template.ekslaunchtemplate.id
+    version = aws_launch_template.ekslaunchtemplate.latest_version
+  }
 
   scaling_config {
     desired_size = var.eks_managed_instance_desired_size

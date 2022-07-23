@@ -81,5 +81,6 @@ variable "eks_managed_instance_types" {
   default = ["t3.medium"]
 }
 variable "eks_managed_capacity_type" {
-  default = "ON_DEMAND" # SPOT or ON_DEMAND
+  description = "SPOT or ON_DEMAND"
+  default = "ON_DEMAND"
 }

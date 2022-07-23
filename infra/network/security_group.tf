@@ -10,7 +10,7 @@ module "rds_security_group" {
   ingress_with_cidr_blocks = [
     {
       rule        = "mysql-tcp"
-      cidr_blocks = "0.0.0.0/0" # TODO: not working for eks pods - "${chomp(data.http.myip.body)}/32" # your ip address
+      cidr_blocks = "${chomp(data.http.myip.body)}/32" # your ip address
     },
   ]
 
