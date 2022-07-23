@@ -208,7 +208,7 @@ docker push docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo:app
 
 3. Or, run in local kubernetes cluster with local redis running on host:
 ```sh
-# upgrade or install helm chart, if not preset
+# change directory to .deploy/helm
 cd .deploy/helm
 
 # check the values file for the helm chart
@@ -379,17 +379,17 @@ ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
 sudo yum upgrade
 sudo yum install mysql
 
-# connect to rds and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
-mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+# connect to rds and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
+mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
 
 # press ctrl+d multiple times to exit
 ```
 
 ### Setup demodb database with user on RDS
 ```sh
-# connect to mysql instance and enter '<DATABASE_MASTERDB_PASSWORD>' for password prompt
-# refer to terraform - values.tfvars for <DATABASE_MASTERDB_USERNAME>
-mysql -u <DATABASE_MASTERDB_USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
+# connect to mysql instance and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
+# refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME>
+mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
 
 # run the following scripts by replacing:
 # - 'user1' with <username>
@@ -469,28 +469,15 @@ helm install cert-manager cert-manager \
 	--repo https://charts.jetstack.io \
 	-n cert-manager --create-namespace \
 	--version v1.8.2
-```
 
-### Install AWS Load Balancer
-Reference: https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
-```sh
-# install aws load balancer controller crds
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
-
-# install aws load balancer controller helm chart
-helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
-	--repo https://aws.github.io/eks-charts \
-	-n kube-system --set clusterName=<EKS CLUSTER NAME> \
-	--set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller \
-	--set enableCertManager=true --set region=<AWS REGION> \
-	--set vpcId=<VPC ID> --set enableWafv2=true
-# where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
-# where <VPC ID> can be found from AWS console
+# if you want to stop and remove helm chart and namespace
+helm uninstall cert-manager -n cert-manager
+kubectl delete namespace cert-manager
 ```
 
 ### Install demo web api on eks
 ```sh
-# upgrade or install helm chart, if not preset
+# change directory to .deploy/helm
 cd .deploy/helm
 
 # check the values file for the helm chart
@@ -519,15 +506,13 @@ cat eks-demo-app/values.yaml
 #   enabled: true
 #   awsRegion: "<AWS REGION>"
 #   eksClusterName: "<EKS CLUSTER NAME>"
-# where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+# where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
 
 # next, modify the values in 'awsSecretsManager':
 # awsSecretsManager:
 #   enabled: true
 #   awsSecretName: "<AWS SECRET NAME>"
 # where <AWS SECRET NAME> is "demo-secret01"
-
-# TODO: AWS Load Balancer controller config
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
@@ -592,6 +577,61 @@ ls -la
 # extract secret
 cat demo-secret01
 >>> {"username":"user1", "password":"password1"}
+```
+
+### Install AWS Load Balancer
+Reference:
+- https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
+- https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
+- https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
+```sh
+# install aws load balancer controller crds
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+
+# install aws load balancer controller helm chart
+helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
+	--repo https://aws.github.io/eks-charts \
+	-n kube-system --set clusterName=<EKS CLUSTER NAME> \
+	--set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller \
+	--set enableCertManager=true --set region=<AWS REGION> \
+	--set vpcId=<VPC ID> --set enableWafv2=true
+# where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+# where <VPC ID> can be found from AWS console
+
+# if you want to stop and remove helm chart
+helm uninstall aws-load-balancer-controller -n kube-system
+```
+
+### Upgrade demo web api to use AWS Load Balancer
+```sh
+# change directory to .deploy/helm
+cd .deploy/helm
+
+# check the values file for the helm chart
+cat eks-demo-app/values.yaml
+# modify the value for 'ingress':
+# ingress:
+#   enabled: true
+#   hosts:
+#     - host: chart-example.local
+# you may need to update the host 'chart-example.local' to any domain that you own
+
+# next, modify the values in 'awsLoadBalancerController':
+# awsLoadBalancerController:
+#   enabled: true
+#   serviceAccountAnnotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
+# where <AWS ACCOUNT ID> can be found from AWS console
+
+# install/upgrade helm chart
+helm upgrade -i eks-demo-app eks-demo-app \
+	-n eks-demo --create-namespace
+# where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+
+# curl to hit the demo api via load balancer
+curl -H "Host: <HOST>" http://<LOAD BALANCER PUBLIC DNS>/
+# where <HOST> is the value configured above and find <LOAD BALANCER PUBLIC DNS> from aws console, if it was successfully created by automation
+>>> Welcome to demo api!
 
 # if you want to stop and remove helm chart and namespace
 helm uninstall eks-demo-app -n eks-demo

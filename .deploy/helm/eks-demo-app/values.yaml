@@ -19,9 +19,9 @@ serviceAccount:
   create: false
   # Annotations to add to the service account
   annotations:
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-    # eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-secrets-manager-role
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-secrets-manager-role
   name: ""
 
 podAnnotations: {}
@@ -47,7 +47,7 @@ env:
 
 secretEnv:
   # - name: DB_CONNECTION_URL
-  #   value: "mysql+mysqldb://<DATABASE_MASTERDB_USERNAME>:<DATABASE_MASTERDB_PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+  #   value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
   # - name: AWS_ACCESS_KEY_ID
   #   value: "<AWS ACCESS KEY ID>"
   # - name: AWS_SECRET_ACCESS_KEY
@@ -63,6 +63,8 @@ awsSecretsManager:
   awsSecretName: "<AWS SECRET NAME>"
 
 securityGroup:
+  # Optionally, enable Security Groups for Pods
+  # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
   enabled: false
   default: ""
 
@@ -72,22 +74,28 @@ service:
 
 ingress:
   enabled: false
-  className: ""
+  className: "alb"
   annotations:
-    kubernetes.io/ingress.class: nginx
+    # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-    # eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-aws-load-balanacer-role
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
   hosts:
     - host: chart-example.local
       paths:
         - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+          pathType: Prefix
+  tls:
+    # - secretName: eks-demo-app-tls
+    #   hosts:
+    #     - chart-example.local
 
-resources: #{}
+awsLoadBalancerController:
+  enabled: false
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
+
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following

@@ -1,0 +1,11 @@
+{{- if .Values.awsLoadBalancerController.enabled -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aws-load-balancer-controller
+  namespace: kube-system
+  {{- with .Values.awsLoadBalancerController.serviceAccountAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

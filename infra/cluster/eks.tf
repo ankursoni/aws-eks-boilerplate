@@ -143,6 +143,7 @@ resource "aws_iam_role" "eksiamrole" {
 }
 
 # Create eks secrets manager role
+# Reference: https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html
 resource "aws_iam_role" "ekssecretsmanagerrole" {
   name = "eks-secrets-manager-role"
   assume_role_policy = jsonencode({
@@ -153,6 +154,11 @@ resource "aws_iam_role" "ekssecretsmanagerrole" {
         Principal = {
           "Federated" : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${aws_iam_openid_connect_provider.eksoidcprovider.url}"
         },
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:aud" : "sts.amazonaws.com",
+          }
+        }
         Action = "sts:AssumeRoleWithWebIdentity"
       },
     ]
@@ -177,6 +183,7 @@ resource "aws_iam_role_policy_attachment" "ekssecretsmanagerroleattachment" {
 }
 
 # Create eks iam load balancer role
+# Reference: https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
 resource "aws_iam_role" "ekslbrole" {
   name = "eks-load-balanacer-role"
   assume_role_policy = jsonencode({
@@ -187,18 +194,28 @@ resource "aws_iam_role" "ekslbrole" {
         Principal = {
           "Federated" : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${aws_iam_openid_connect_provider.eksoidcprovider.url}"
         },
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:aud" : "sts.amazonaws.com",
+            "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:sub" : "system:serviceaccount:kube-system:aws-load-balancer-controller"
+          }
+        }
         Action = "sts:AssumeRoleWithWebIdentity"
       },
     ]
   })
 }
-resource "aws_iam_policy" "ekslbpolicy" {
-  name   = "eks-lb-policy"
-  policy = file("${path.module}/eks_lb_policy.json")
+resource "aws_iam_policy" "albcontrollerpolicy" {
+  name   = "AWSLoadBalancerControllerIAMPolicy"
+  policy = file("${path.module}/awslbcontroller_policy.json")
 }
-resource "aws_iam_role_policy_attachment" "ekslbroleattachment" {
+resource "aws_iam_role_policy_attachment" "ekslbroleattachment01" {
   role       = aws_iam_role.ekslbrole.name
-  policy_arn = aws_iam_policy.ekslbpolicy.arn
+  policy_arn = aws_iam_policy.albcontrollerpolicy.arn
+}
+resource "aws_iam_role_policy_attachment" "ekslbroleattachment02" {
+  role       = aws_iam_role.ekslbrole.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
 }
 
 data "aws_caller_identity" "current" {}
