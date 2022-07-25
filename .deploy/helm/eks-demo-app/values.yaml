@@ -9,6 +9,10 @@ image:
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+  args: 
+    - "migrateThenApi" # or "api"
+    - "--debug-mode"
+    - "true"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -23,6 +27,12 @@ serviceAccount:
     # If not set and create is true, a name is generated using the fullname template
     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-secrets-manager-role
   name: ""
+
+securityGroup:
+  # Optionally, enable Security Groups for Pods
+  # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
+  enabled: false
+  default: ""
 
 podAnnotations: {}
 
@@ -62,38 +72,53 @@ awsSecretsManager:
   enabled: false
   awsSecretName: "<AWS SECRET NAME>"
 
-securityGroup:
-  # Optionally, enable Security Groups for Pods
-  # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
-  enabled: false
-  default: ""
-
 service:
   type: ClusterIP
   port: 8080
+
+awsLoadBalancerController:
+  enabled: true
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::442234703641:role/eks-load-balanacer-role
 
 ingress:
   enabled: false
   className: "alb"
   annotations:
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+    # comment this line for 'tlsEnabled: true':
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/group.name: "eks-demo-app"
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
   hosts:
-    - host: chart-example.local
+    - host: <HOST>
       paths:
         - path: /
           pathType: Prefix
+  tlsEnabled: true
   tls:
-    # - secretName: eks-demo-app-tls
-    #   hosts:
-    #     - chart-example.local
+    - secretName: eks-demo-app-tls
+      hosts:
+        - <HOST>
+  tlsAnnotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    cert-manager.io/cluster-issuer: letsencrypt
+    kubernetes.io/tls-acme: "true"
 
-awsLoadBalancerController:
+letsencrypt:
   enabled: false
-  serviceAccountAnnotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
+  className: "alb"
+  email: "ankur.soni@outlook.com"
+  # letsencrypt staging:
+  server: https://acme-staging-v02.api.letsencrypt.org/directory
+  # letsencrypt production:
+  # server: https://acme-v02.api.letsencrypt.org/directory
+  annotations:
+    alb.ingress.kubernetes.io/group.name: "eks-demo-app"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious

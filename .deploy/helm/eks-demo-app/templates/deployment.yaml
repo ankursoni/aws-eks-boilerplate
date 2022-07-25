@@ -45,7 +45,8 @@ spec:
             {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["migrateThenApi", "--debug-mode", "true"] 
+          args:
+            {{- toYaml .Values.image.args | nindent 12 }}
           ports:
             - name: http
               containerPort: 8080

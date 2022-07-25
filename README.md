@@ -76,7 +76,7 @@ redis-cli
 set demo "This is a demo text from redis!"
 ```
 
-### Install demo web api locally
+### Install demo app locally
 1. Run as web api server:
 ```sh
 # run the database migrations
@@ -337,9 +337,10 @@ cp values.tfvars.template values.tfvars
 # - 's3_bucket_name' is the globally unique s3 bucket name for e.g. demo-s3-t1234
 
 # - 'create_bastion' is true / false for creating the bastion hosts i.e. ec2 instances in private and public subnets
-# - bastion_key_pair_name is the name of key pair used by ec2 instance for ssh into bastion hosts for e.g. access_key. This has to be created beforehand by the user: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
+# - 'bastion_key_pair_name' is the name of key pair used by ec2 instance for ssh into bastion hosts for e.g. access_key. This has to be created beforehand by the user: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
 
 # - 'create_eks_cluster' is true / false for creating the eks cluster
+# - 'eks_managed_instance_types' contains the instance types to choose from
 # - 'eks_managed_capacity_type' is either 'SPOT' or 'ON_DEMAND' (default)
 
 ```
@@ -464,7 +465,7 @@ helm install secrets-store-csi-driver secrets-store-csi-driver \
 helm uninstall secrets-store-csi-driver -n kube-system
 ```
 
-### Install demo web api on eks
+### Install demo app on eks
 ```sh
 # change directory to .deploy/helm
 cd .deploy/helm
@@ -480,7 +481,7 @@ cat eks-demo-app/values.yaml
 #   create: true
 #   annotations:
 #     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eksawssecretsmanagerrole
-# where <AWS ACCOUNT ID> can be found from AWS console
+# -> where <AWS ACCOUNT ID> can be found from AWS console
 
 # next, modify the values in 'env' and 'secretEnv' by uncommenting
 # and populating the - 'value' fields, for example:
@@ -488,27 +489,27 @@ cat eks-demo-app/values.yaml
 #   - name: name: DB_CONNECTION_URL
 #     value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
 # refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME> and <DATABASE MASTERDB PASSWORD>
-# where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
+# -> where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
 
 # next, modify the values in 'awsCloudWatch':
 # awsCloudWatch:
 #   enabled: true
 #   awsRegion: "<AWS REGION>"
 #   eksClusterName: "<EKS CLUSTER NAME>"
-# where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
+# -> where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>, <AWS REGION>
 
 # next, modify the values in 'awsSecretsManager':
 # awsSecretsManager:
 #   enabled: true
 #   awsSecretName: "<AWS SECRET NAME>"
-# where <AWS SECRET NAME> is "demo-secret01"
+# -> where <AWS SECRET NAME> is "demo-secret01"
 
 # next, modify the values in 'awsLoadBalancerController':
 # awsLoadBalancerController:
 #   enabled: true
 #   serviceAccountAnnotations:
 #     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-load-balanacer-role
-# where <AWS ACCOUNT ID> can be found from AWS console
+# -> where <AWS ACCOUNT ID> can be found from AWS console
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
@@ -566,6 +567,10 @@ cat demo-secret01
 # press ctrl+d to exit
 ```
 
+### Monitor on AWS CloudWatch
+Navigate to 'CloudWatch on AWS console:
+Check application logs under 'Log groups' - /aws/containerinsights/<EKS CLUSTER NAME>/application.
+
 ### Install cert-manager for free TLS certificates from letsencrypt.org
 Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
 ```sh
@@ -588,6 +593,8 @@ Reference:
 - https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
 - https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
 - https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
+- https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/how-it-works/
+- https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/
 ```sh
 # install aws load balancer controller crds
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
@@ -607,7 +614,7 @@ helm upgrade -i aws-load-balancer-controller aws-load-balancer-controller \
 helm uninstall aws-load-balancer-controller -n kube-system
 ```
 
-### Upgrade demo web api to use ingress via AWS Load Balancer
+### Upgrade demo app to use ingress via AWS Load Balancer
 ```sh
 # change directory to .deploy/helm
 cd .deploy/helm
@@ -617,9 +624,12 @@ cat eks-demo-app/values.yaml
 # modify the value for 'ingress':
 # ingress:
 #   enabled: true
+# ...
 #   hosts:
-#     - host: chart-example.local
-# you may need to update the host 'chart-example.local' to any domain that you own
+#     - host: <HOST>
+#   tlsEnabled: false
+# ...
+# -> update the <HOST> to any domain that you own
 
 # install/upgrade helm chart
 helm upgrade -i eks-demo-app eks-demo-app \
@@ -636,9 +646,75 @@ helm uninstall eks-demo-app -n eks-demo
 kubectl delete namespace eks-demo
 ```
 
-### Monitor on AWS CloudWatch
-Navigate to 'CloudWatch on AWS console:
-Check application logs under 'Log groups' - /aws/containerinsights/<EKS CLUSTER NAME>/application.
+### Upgrade demo app to use TLS certificate from letsencrypt.org
+Setup AWS Route53 for your <HOST> with nameserver entries from your registrar pointing to AWS.
+Next, create an 'A' record with alias pointing to the AWS Load Balancer created in the previous section:
+![example aws route53 A record](./docs/images/aws-route53-a-record.png)
+
+```sh
+# test the host url after few minutes
+curl http://<HOST>/
+>>> Welcome to demo api!
+
+# check the values file for the helm chart
+cat eks-demo-app/values.yaml
+# modify the value for 'ingress':
+# ingress:
+#   enabled: true
+#   className: "alb"
+#   annotations:
+#     # comment this line for 'tlsEnabled: true':
+#     # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+#     ...
+# ...
+#   tlsEnabled: true
+# ...
+
+# modify the value for 'letsencrypt':
+# letsencrypt:
+#   enabled: true
+#   className: "alb"
+#   email: "<EMAIL ADDRESS>"
+#   # letsencrypt staging:
+#   server: https://acme-staging-v02.api.letsencrypt.org/directory
+#   # letsencrypt production:
+#   # server: https://acme-v02.api.letsencrypt.org/directory
+# ...
+# -> uncomment the line for 'server' following 'letsencrypt staging'
+# later, you can uncomment the line for 'server' following 'letsencrypt production' instead
+
+# manually import the certificate to aws certificates manager
+kubectl get secret -n eks-demo eks-demo-app-tls -o yaml | yq '.data."tls.crt"' | base64 -d | sed -e '/-----END CERTIFICATE-----/q' > certificate.pem
+
+kubectl get secret -n eks-demo eks-demo-app-tls -o yaml | yq '.data."tls.crt"' | base64 -d > certificate-chain.pem
+
+kubectl get secret -n eks-demo eks-demo-app-tls -o yaml | yq '.data."tls.key"' | base64 -d > private-key.pem
+
+aws acm import-certificate \
+	--certificate fileb://certificate.pem \
+	--certificate-chain fileb://certificate-chain.pem \
+	--private-key fileb://private-key.pem
+
+# test the host url on 'http' after few minutes
+curl http://<HOST>/
+>>> <html>
+>>> <head><title>301 Moved Permanently</title></head>
+>>> <body>
+>>> <center><h1>301 Moved Permanently</h1></center>
+>>> </body>
+>>> </html>
+
+# test the host url on 'https' after few minutes
+curl -k https://<HOST>/
+# or
+curl https://<HOST>/
+>>> Welcome to demo api!
+```
+
+Refer to the following issues for future improvements in automatic import of tls certificate secret to AWS Certificates Manager:
+- https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/1084
+- https://github.com/cert-manager/cert-manager/issues/3711
+
 
 ## Authors
 
