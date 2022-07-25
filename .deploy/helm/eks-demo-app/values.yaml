@@ -95,7 +95,7 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-  tlsEnabled: true
+  tlsEnabled: false
   tls:
     - secretName: eks-demo-app-tls
       hosts:

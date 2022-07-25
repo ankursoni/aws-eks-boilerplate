@@ -1,13 +1,23 @@
 # aws-eks-boilerplate
 
 [![Build](https://github.com/ankursoni/aws-eks-boilerplate/actions/workflows/build.yml/badge.svg)](https://github.com/ankursoni/aws-eks-boilerplate/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/ankursoni/aws-eks-boilerplate/branch/milestone1/graph/badge.svg?token=ZZWMD4FB93)](https://codecov.io/gh/ankursoni/aws-eks-boilerplate)
+[![codecov](https://codecov.io/gh/ankursoni/aws-eks-boilerplate/branch/main/graph/badge.svg?token=ZZWMD4FB93)](https://codecov.io/gh/ankursoni/aws-eks-boilerplate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/github/license/ankursoni/aws-eks-boilerplate)](/LICENSE)
 
 
 > AWS EKS Boilerplate
+This project helps serve as a boilerplate / template for a typical application running on Kubernetes which has been setup with:
+- [AWS EKS](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html) cluster
+- [AWS RDS DB Instance (MySQL)](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.DBInstance.html) for database
+- [AWS S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html) for storage
+- [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html) for secrets
+- [AWS Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html) for load balancing
+- [AWS CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html) for monitoring
+- [AWS Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/Welcome.html) for dns
+- [AWS VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) for networking
 
+![aws topology infrastructure](docs/images/aws-topology-Infrastructure.png)
 
 ## Install demo app locally
 
@@ -571,7 +581,7 @@ cat demo-secret01
 Navigate to 'CloudWatch on AWS console:
 Check application logs under 'Log groups' - /aws/containerinsights/<EKS CLUSTER NAME>/application.
 
-### Install cert-manager for free TLS certificates from letsencrypt.org
+### Install cert-manager for generating free TLS certificates from letsencrypt.org
 Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
 ```sh
 # install cert-manager crds
@@ -588,7 +598,7 @@ helm uninstall cert-manager -n cert-manager
 kubectl delete namespace cert-manager
 ```
 
-### Install AWS Load Balancer after cert-manager is installed
+### Install AWS Load Balancer Controller after cert-manager is installed
 Reference:
 - https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
 - https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
@@ -646,7 +656,7 @@ helm uninstall eks-demo-app -n eks-demo
 kubectl delete namespace eks-demo
 ```
 
-### Upgrade demo app to use TLS certificate from letsencrypt.org
+### Upgrade demo app to use free TLS certificate from letsencrypt.org
 Setup AWS Route53 for your <HOST> with nameserver entries from your registrar pointing to AWS.
 Next, create an 'A' record with alias pointing to the AWS Load Balancer created in the previous section:
 ![example aws route53 A record](./docs/images/aws-route53-a-record.png)
