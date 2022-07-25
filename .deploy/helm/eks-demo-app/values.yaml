@@ -1,0 +1,146 @@
+# Default values for eks-demo-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: docker.io/ankursoni/eks-demo
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+  args: 
+    - "migrateThenApi" # or "api"
+    - "--debug-mode"
+    - "true"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations:
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-secrets-manager-role
+  name: ""
+
+securityGroup:
+  # Optionally, enable Security Groups for Pods
+  # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
+  enabled: false
+  default: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+env:
+  # - name: AWS_REGION
+  #   value: "<AWS REGION>"
+  # - name: AWS_S3_BUCKET
+  #   value: "<AWS S3 BUCKET>"
+  # - name: REDIS_HOST
+  #   value: "eks-demo-app-redis"
+
+secretEnv:
+  # - name: DB_CONNECTION_URL
+  #   value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+  # - name: AWS_ACCESS_KEY_ID
+  #   value: "<AWS ACCESS KEY ID>"
+  # - name: AWS_SECRET_ACCESS_KEY
+  #   value: "<AWS SECRET ACCESS KEY>"
+
+awsCloudWatch:
+  enabled: false
+  awsRegion: "<AWS REGION>"
+  eksClusterName: "<EKS CLUSTER NAME>"
+
+awsSecretsManager:
+  enabled: false
+  awsSecretName: "<AWS SECRET NAME>"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+awsLoadBalancerController:
+  enabled: true
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::442234703641:role/eks-load-balanacer-role
+
+ingress:
+  enabled: false
+  className: "alb"
+  annotations:
+    # comment this line for 'tlsEnabled: true':
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/group.name: "eks-demo-app"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: <HOST>
+      paths:
+        - path: /
+          pathType: Prefix
+  tlsEnabled: false
+  tls:
+    - secretName: eks-demo-app-tls
+      hosts:
+        - <HOST>
+  tlsAnnotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    cert-manager.io/cluster-issuer: letsencrypt
+    kubernetes.io/tls-acme: "true"
+
+letsencrypt:
+  enabled: false
+  className: "alb"
+  email: "ankur.soni@outlook.com"
+  # letsencrypt staging:
+  server: https://acme-staging-v02.api.letsencrypt.org/directory
+  # letsencrypt production:
+  # server: https://acme-v02.api.letsencrypt.org/directory
+  annotations:
+    alb.ingress.kubernetes.io/group.name: "eks-demo-app"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 400m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

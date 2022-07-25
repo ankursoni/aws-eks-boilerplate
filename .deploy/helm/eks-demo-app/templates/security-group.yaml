@@ -1,0 +1,13 @@
+{{- if .Values.securityGroup.enabled }}
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: {{ include "eks-demo-app.fullname" . }}
+spec:
+  podSelector: 
+    matchLabels:
+      {{- include "eks-demo-app.selectorLabels" . | nindent 6 }}
+  securityGroups:
+    groupIds:
+      - {{ .Values.securityGroup.default }}
+{{- end }}

@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: demo.app Module",
+            "type": "python",
+            "request": "launch",
+            "module": "demo.app",
+            "justMyCode": true,
+            "env": {
+                "FLASK_ENV": "development",
+                "DB_CONNECTION_URL": "mysql+mysqldb://user1:password1@localhost/demodb",
+                "AWS_REGION": "ap-southeast-2",
+                "AWS_S3_BUCKET": "eks-demo-s3",
+                "AWS_ACCESS_KEY_ID": "<REDACTED>",
+                "AWS_SECRET_ACCESS_KEY": "<REDACTED>",
+                "REDIS_HOST": "localhost"
+            }
+        }
+    ]
+}
