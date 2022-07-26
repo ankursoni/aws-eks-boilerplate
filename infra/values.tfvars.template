@@ -7,6 +7,8 @@ enable_database_public_access=false
 database_instance_name="demo-database"
 database_masterdb_username="demouser"
 database_masterdb_password="demopassword"
+database_demodb_username="user1"
+database_demodb_password="password1"
 
 create_s3_bucket=true
 s3_bucket_name="eks-demo-s3"

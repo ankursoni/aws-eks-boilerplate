@@ -371,28 +371,17 @@ terraform destroy -var-file=values.tfvars
 ```
 
 ### Access RDS database instance from bastion hosts
-If the user has not enabled 'enable_database_public_access' then, the rds database instance is only accessible to the bastion host running inside the private subnet. And the bastion host running inside private subnet is only accessible to the bastion host running inside the public subnet.
+If the user has not enabled 'enable_database_public_access' then, the rds instance is only accessible to the bastion host running inside the public subnet.
 
 ```sh
 # assuming you have created 'bastion_key_pair_name' as 'access_key' and downloaded key pair to ~/Downloads folder
-chmod 0700 ~/Downloads/access_key.pem
-
-# copy key pair inside public bastion host
-scp -i ~/Downloads/access_key.pem ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>:~
+chmod 0400 ~/Downloads/access_key.pem
 
 # ssh into public bastion host
 ssh -i ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>
 
-# ssh into private bastion host from inside public bastion host
-ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
-
-# install mysql using yum
-sudo yum upgrade
-sudo yum install mysql
-# or
-sudo yum install mariadb105
-
-# connect to rds and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
+# bastion host has already installed mysql client and initialised demodb database and demodb user and password at the start of its launch 
+# connect to mysql rds instance and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
 mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
 
 # press ctrl+d multiple times to exit
@@ -497,9 +486,9 @@ cat eks-demo-app/values.yaml
 # and populating the - 'value' fields, for example:
 # secretEnv:
 #   - name: name: DB_CONNECTION_URL
-#     value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
-# refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME> and <DATABASE MASTERDB PASSWORD>
-# -> where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
+#     value: "mysql+mysqldb://<DATABASE DEMODB USERNAME>:<DATABASE DEMODB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+# -> refer to terraform - values.tfvars for <DATABASE DEMODB USERNAME> and <DATABASE DEMODB PASSWORD>
+# and <RDS DATABASE ENDPOINT DNS> can be found from AWS console
 
 # next, modify the values in 'awsCloudWatch':
 # awsCloudWatch:

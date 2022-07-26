@@ -47,6 +47,12 @@ variable "database_masterdb_username" {
 variable "database_masterdb_password" {
   default = ""
 }
+variable "database_demodb_username" {
+  default = ""
+}
+variable "database_demodb_password" {
+  default = ""
+}
 
 variable "create_s3_bucket" {
   default = false

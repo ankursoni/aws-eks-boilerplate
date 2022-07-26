@@ -54,9 +54,14 @@ module "bastion" {
   public_security_group_ids  = [module.network.vpc_default_security_group_id, module.network.public_bastion_security_group_id]
   private_subnets            = module.network.private_subnets
   public_subnets             = module.network.public_subnets
+  db_instance_endpoint       = module.database[0].db_instance_endpoint
+  database_masterdb_username = var.database_masterdb_username
+  database_masterdb_password = var.database_masterdb_password
+  database_demodb_username   = var.database_demodb_username
+  database_demodb_password   = var.database_demodb_password
 
   count      = var.create_bastion ? 1 : 0
-  depends_on = [module.network]
+  depends_on = [module.network, module.database]
 }
 
 module "cluster" {
