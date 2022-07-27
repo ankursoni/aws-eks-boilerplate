@@ -110,19 +110,25 @@ resource "aws_eks_node_group" "eksng01" {
   instance_types = var.eks_managed_instance_types
   capacity_type  = var.eks_managed_capacity_type
 
-  lifecycle {
-    ignore_changes = [
-      scaling_config[0].desired_size,
-      scaling_config[0].max_size,
-      scaling_config[0].min_size,
-    ]
-  }
+  # commented for manually scaling out and scaling in
+  # lifecycle {
+  #   ignore_changes = [
+  #     scaling_config[0].desired_size,
+  #     scaling_config[0].max_size,
+  #     scaling_config[0].min_size,
+  #   ]
+  # }
 
   depends_on = [
     aws_iam_role_policy_attachment.node-AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.node-AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node-AmazonEC2ContainerRegistryReadOnly,
   ]
+
+  tags = {
+    "k8s.io/cluster-autoscaler/${aws_eks_cluster.eks01.name}" = "owned"
+    "k8s.io/cluster-autoscaler/enabled"                       = "true"
+  }
 }
 
 # Enable iam roles for service accounts via oidc provider
@@ -209,7 +215,6 @@ resource "aws_iam_role" "ekslbrole" {
         Condition = {
           StringEquals = {
             "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:aud" : "sts.amazonaws.com",
-            "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:sub" : "system:serviceaccount:kube-system:aws-load-balancer-controller"
           }
         }
         Action = "sts:AssumeRoleWithWebIdentity"
@@ -231,6 +236,37 @@ resource "aws_iam_role_policy_attachment" "ekslbroleattachment02" {
 }
 
 data "aws_caller_identity" "current" {}
+
+# Create eks cluster autoscaler role
+# Reference: https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html#cluster-autoscaler
+resource "aws_iam_role" "eksclusterautoscalerrole" {
+  name = "eks-cluster-autoscaler-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          "Federated" : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${aws_iam_openid_connect_provider.eksoidcprovider.url}"
+        },
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.eksoidcprovider.url, "https://", "")}:sub" : "system:serviceaccount:kube-system:cluster-autoscaler"
+          }
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+      },
+    ]
+  })
+}
+resource "aws_iam_policy" "eksclusterautoscalerpolicy" {
+  name   = "AmazonEKSClusterAutoscalerPolicy"
+  policy = replace(file("${path.module}/eks-cluster-autoscaler-policy.json"), "<my-cluster>", aws_eks_cluster.eks01.name)
+}
+resource "aws_iam_role_policy_attachment" "eksclusterautoscalerroleattachment01" {
+  role       = aws_iam_role.eksclusterautoscalerrole.name
+  policy_arn = aws_iam_policy.eksclusterautoscalerpolicy.arn
+}
 
 # # For pod based cloudwatch logging using iam role mapped to service account
 # resource "aws_cloudwatch_log_group" "ekscloudwatchloggroup" {

@@ -4,3 +4,8 @@ variable "private_security_group_ids" {}
 variable "public_security_group_ids" {}
 variable "private_subnets" {}
 variable "public_subnets" {}
+variable "db_instance_endpoint" {}
+variable "database_masterdb_username" {}
+variable "database_masterdb_password" {}
+variable "database_demodb_username" {}
+variable "database_demodb_password" {}

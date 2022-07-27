@@ -77,7 +77,7 @@ service:
   port: 8080
 
 awsLoadBalancerController:
-  enabled: true
+  enabled: false
   serviceAccountAnnotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::442234703641:role/eks-load-balanacer-role
 
@@ -126,18 +126,22 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 400m
+    cpu: 500m
     memory: 512Mi
   requests:
-    cpu: 200m
+    cpu: 250m
     memory: 256Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  maxReplicas: 10
+  averageCPUUtilizationPercentage: 80
+  averageMemoryUtilizationPercentage: 80
+  clusterAutoscalerVersion: v1.22.3
+  clusterName: <EKS CLUSTER NAME>
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-cluster-autoscaler-role
 
 nodeSelector: {}
 

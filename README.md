@@ -19,6 +19,39 @@ This project helps serve as a boilerplate / template for a typical application r
 
 ![aws topology infrastructure](docs/images/aws-topology-Infrastructure.png)
 
+Table of Contents:
+- [aws-eks-boilerplate](#aws-eks-boilerplate)
+	- [Install demo app locally](#install-demo-app-locally)
+		- [Pre-requisites](#pre-requisites)
+		- [Setup demo app](#setup-demo-app)
+		- [Setup demodb database with user](#setup-demodb-database-with-user)
+		- [Setup s3 bucket with access credentials](#setup-s3-bucket-with-access-credentials)
+		- [Setup redis with key/value pair](#setup-redis-with-keyvalue-pair)
+		- [Install demo app locally](#install-demo-app-locally-1)
+		- [Run tests](#run-tests)
+		- [Usage](#usage)
+	- [Install on AWS](#install-on-aws)
+		- [Pre-requisites](#pre-requisites-1)
+		- [Create 'values.tfvars' file](#create-valuestfvars-file)
+		- [Run terraform](#run-terraform)
+		- [Access RDS database instance from bastion hosts](#access-rds-database-instance-from-bastion-hosts)
+		- [Setup demodb database with user on RDS](#setup-demodb-database-with-user-on-rds)
+		- [Setup s3 bucket with access credentials](#setup-s3-bucket-with-access-credentials-1)
+		- [Install on AWS EKS](#install-on-aws-eks)
+		- [Update kube config and kubectl current context](#update-kube-config-and-kubectl-current-context)
+		- [Install Kubernetes Metrics Server](#install-kubernetes-metrics-server)
+		- [Install AWS Secrets Manager and Config Provider for Secret Store CSI Driver](#install-aws-secrets-manager-and-config-provider-for-secret-store-csi-driver)
+		- [Install demo app on eks](#install-demo-app-on-eks)
+		- [Monitor on AWS CloudWatch](#monitor-on-aws-cloudwatch)
+		- [Install cert-manager for generating free TLS certificates from letsencrypt.org](#install-cert-manager-for-generating-free-tls-certificates-from-letsencryptorg)
+		- [Install AWS Load Balancer Controller after cert-manager is installed](#install-aws-load-balancer-controller-after-cert-manager-is-installed)
+		- [Upgrade demo app to use ingress via AWS Load Balancer](#upgrade-demo-app-to-use-ingress-via-aws-load-balancer)
+		- [Upgrade demo app to use free TLS certificate from letsencrypt.org](#upgrade-demo-app-to-use-free-tls-certificate-from-letsencryptorg)
+		- [Manually scale out eks managed node group](#manually-scale-out-eks-managed-node-group)
+		- [Run a horizontal autoscaler with automatic scaling via cluster-autoscaler](#run-a-horizontal-autoscaler-with-automatic-scaling-via-cluster-autoscaler)
+	- [Authors](#authors)
+	- [📝 License](#-license)
+
 ## Install demo app locally
 
 ### Pre-requisites
@@ -341,7 +374,9 @@ cp values.tfvars.template values.tfvars
 
 # - 'database_instance_name' is rds database instance name for e.g. demo-database
 # - 'database_masterdb_username' is rds database masterdb username for e.g. demouser
-# - 'database_masterdb_password' is rds database masterdb password for e.g. demouser
+# - 'database_masterdb_password' is rds database masterdb password for e.g. demopassword
+# - 'database_demodb_username' is rds database demodb username that will be created for app to use, e.g. user1
+# - 'database_demodb_password' is rds database demodb password that will be created for app to use, for e.g. password1
 
 # - 'create_s3_bucket' is true / false for creating the s3 bucket
 # - 's3_bucket_name' is the globally unique s3 bucket name for e.g. demo-s3-t1234
@@ -350,6 +385,9 @@ cp values.tfvars.template values.tfvars
 # - 'bastion_key_pair_name' is the name of key pair used by ec2 instance for ssh into bastion hosts for e.g. access_key. This has to be created beforehand by the user: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
 
 # - 'create_eks_cluster' is true / false for creating the eks cluster
+# - 'eks_managed_instance_min_size' is minimum worker count in node group
+# - 'eks_managed_instance_max_size' is maximum worker count in node group
+# - 'eks_managed_instance_desired_size' is launch time worker count in node group (generally matched with min size)
 # - 'eks_managed_instance_types' contains the instance types to choose from
 # - 'eks_managed_capacity_type' is either 'SPOT' or 'ON_DEMAND' (default)
 
@@ -371,28 +409,17 @@ terraform destroy -var-file=values.tfvars
 ```
 
 ### Access RDS database instance from bastion hosts
-If the user has not enabled 'enable_database_public_access' then, the rds database instance is only accessible to the bastion host running inside the private subnet. And the bastion host running inside private subnet is only accessible to the bastion host running inside the public subnet.
+If the user has not enabled 'enable_database_public_access' then, the rds instance is only accessible to the bastion host running inside the public subnet.
 
 ```sh
 # assuming you have created 'bastion_key_pair_name' as 'access_key' and downloaded key pair to ~/Downloads folder
-chmod 0700 ~/Downloads/access_key.pem
-
-# copy key pair inside public bastion host
-scp -i ~/Downloads/access_key.pem ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>:~
+chmod 0400 ~/Downloads/access_key.pem
 
 # ssh into public bastion host
 ssh -i ~/Downloads/access_key.pem ec2-user@<PUBLIC IPv4 DNS OF public-bastion>
 
-# ssh into private bastion host from inside public bastion host
-ssh -i ~/access_key.pem ec2-user@<PRIVATE IPv4 DNS OF private-bastion>
-
-# install mysql using yum
-sudo yum upgrade
-sudo yum install mysql
-# or
-sudo yum install mariadb105
-
-# connect to rds and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
+# bastion host has already installed mysql client and initialised demodb database and demodb user and password at the start of its launch 
+# connect to mysql rds instance and enter '<DATABASE MASTERDB PASSWORD>' for password prompt
 mysql -u <DATABASE MASTERDB USERNAME> -h <RDS DATABASE ENDPOINT DNS> -P 3306 -p
 
 # press ctrl+d multiple times to exit
@@ -450,17 +477,29 @@ docker build \
 # tag docker image and push to your container repository in docker hub
 docker tag eks-demo:app docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo:app
 docker push docker.io/<YOUR DOCKER REPOSITORY/USERNAME>/eks-demo:app
+```
 
+### Update kube config and kubectl current context
+```sh
 # update kube config with eks cluster context
 aws eks list-clusters --region <AWS REGION>
 aws eks update-kubeconfig --name <EKS_CUSTER_NAME> --region <AWS REGION>
 # where <EKS_CUSTER_NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT> and <AWS REGION>
 ```
 
+### Install Kubernetes Metrics Server
+Reference:
+- https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
+
+```sh
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
 ### Install AWS Secrets Manager and Config Provider for Secret Store CSI Driver
 Reference:
 - https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html
 - https://github.com/aws/secrets-store-csi-driver-provider-aws
+
 ```sh
 # create demo secret in aws secrets manager
 aws --region <AWS REGION> secretsmanager create-secret --name demo-secret01 --secret-string '{"username":"user1", "password":"password1"}'
@@ -497,9 +536,9 @@ cat eks-demo-app/values.yaml
 # and populating the - 'value' fields, for example:
 # secretEnv:
 #   - name: name: DB_CONNECTION_URL
-#     value: "mysql+mysqldb://<DATABASE MASTERDB USERNAME>:<DATABASE MASTERDB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
-# refer to terraform - values.tfvars for <DATABASE MASTERDB USERNAME> and <DATABASE MASTERDB PASSWORD>
-# -> where <RDS DATABASE ENDPOINT DNS> can be found from AWS console
+#     value: "mysql+mysqldb://<DATABASE DEMODB USERNAME>:<DATABASE DEMODB PASSWORD>@<RDS DATABASE ENDPOINT DNS>/demodb"
+# -> refer to terraform - values.tfvars for <DATABASE DEMODB USERNAME> and <DATABASE DEMODB PASSWORD>
+# and <RDS DATABASE ENDPOINT DNS> can be found from AWS console
 
 # next, modify the values in 'awsCloudWatch':
 # awsCloudWatch:
@@ -583,6 +622,7 @@ Check application logs under 'Log groups' - /aws/containerinsights/<EKS CLUSTER 
 
 ### Install cert-manager for generating free TLS certificates from letsencrypt.org
 Reference: https://artifacthub.io/packages/helm/cert-manager/cert-manager
+
 ```sh
 # install cert-manager crds
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.crds.yaml
@@ -605,6 +645,7 @@ Reference:
 - https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
 - https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/how-it-works/
 - https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/
+
 ```sh
 # install aws load balancer controller crds
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
@@ -724,6 +765,139 @@ curl https://<HOST>/
 Refer to the following issues for future improvements in automatic import of tls certificate secret to AWS Certificates Manager:
 - https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/1084
 - https://github.com/cert-manager/cert-manager/issues/3711
+
+
+### Manually scale out eks managed node group
+Reference:
+- https://docs.aws.amazon.com/eks/latest/userguide/create-managed-node-group.html
+
+To manually scale up or out, make sure to configure eks managed instance min size, desired size, max size and instance typed in `infra/values.tfvars`
+```sh
+# minimum worker count in node group (good to increase for scaling out in burst scenarios):
+eks_managed_instance_min_size=1
+# maximum worker count in node group:
+eks_managed_instance_max_size=10
+# launch time worker count in node group (generally matched with min size):
+eks_managed_instance_desired_size=1
+# worker machine type (increase capacity for scaling up and decrease capacity for scaling down):
+eks_managed_instance_types=["t3.medium"]
+
+# if there was a change in values then, re-run terraform
+cd infra
+# to update infrastructure
+terraform apply -var-file=values.tfvars
+```
+
+### Run a horizontal autoscaler with automatic scaling via cluster-autoscaler
+Reference:
+- https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html#cluster-autoscaler
+- https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html
+
+Make sure you've chosen an eks managed instance min size, desired size, max size and instance typed in `infra/values.tfvars` like:
+```sh
+# minimum worker count in node group:
+eks_managed_instance_min_size=1
+# maximum worker count in node group:
+eks_managed_instance_max_size=10
+# launch time worker count in node group (generally matched with min size):
+eks_managed_instance_desired_size=1
+# worker machine type:
+eks_managed_instance_types=["t3.medium"]
+
+# If there was a change in values then, re-run terraform
+cd infra
+# to update infrastructure
+terraform apply -var-file=values.tfvars
+
+# re-install metrics server, if not in running state
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# re-install secrets store csi driver helm chart, if not in running state
+helm upgrade -i secrets-store-csi-driver secrets-store-csi-driver \
+  --repo https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts \
+  -n kube-system
+
+# delete cert-manager helm chart and namespace as we won't be using it for known issues in cert-manager tls certificate generation issues as listed in previous section
+helm delete cert-manager -n cert-manager
+kubectl delete namespace cert-manager
+
+# delete aws-load-balancer-controller helm chart for reasons mentioned above
+helm delete aws-load-balancer-controller -n kube-system
+
+# check the values file for the helm chart
+cat eks-demo-app/values.yaml
+# modify the value for 'autoscaling':
+# autoscaling:
+#   enabled: true
+#   minReplicas: 1
+#   maxReplicas: 20
+#   averageCPUUtilizationPercentage: 10
+#   averageMemoryUtilizationPercentage: 80
+#   clusterAutoscalerVersion: v1.22.3
+#   clusterName: <EKS CLUSTER NAME>
+#   serviceAccountAnnotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::<AWS ACCOUNT ID>:role/eks-cluster-autoscaler-role
+# -> where <EKS CUSTER NAME> is of the format <ENVIRONMENT>-eks01, refer to terraform - values.tfvars for <ENVIRONMENT>
+# and <AWS ACCOUNT ID> can be found from AWS console
+
+# next, disable 'awsLoadBalancerController', 'ingress.tls' and 'letsencrypt' for reasons mentioned above:
+# awsLoadBalancerController:
+#   enabled: false
+# ...
+# ingress:
+#   enabled: false
+#   ...
+#   tlsEnabled: false
+# ...
+# letsencrypt:
+#   enabled: false
+
+# install/upgrade helm chart
+cd ../.deploy/helm
+helm upgrade -i eks-demo-app eks-demo-app \
+	-n eks-demo --create-namespace
+
+# after a minute, run a load generator for demo app
+kubectl run -it \
+	--namespace eks-demo \
+	load-generator \
+	--rm --image=busybox \
+	--restart=Never \
+	-- /bin/sh -c "while sleep 0.01; do wget -q -O- http://eks-demo-app:8080/; done"
+
+# in another terminal, check the status of horizontal pod auto scaler
+kubectl -n eks-demo describe hpa/eks-demo-app 
+# -> this should indicate some scale out operations like
+# Normal   SuccessfulRescale   1m   horizontal-pod-autoscaler  New size: 2; reason: cpu resource utilization (percentage of request) above target
+
+# now, check the logs from cluster-autoscaler
+kubectl get -n kube-system pods
+# select the 'cluster-autoscaler-###' pod from the list
+kubectl logs -n kube-system cluster-autoscaler-667b986857-zmq9k -f
+# after few minutes, this should indicate successful scaling out operations like
+# I0726 23:42:51.362011 1 clusterstate.go:248] Scale up in group eks-eks-managed-48c11e6c-d7e4-d283-16ba-567fad00cc9d finished successfully in 1m30.36612565s
+# press ctrl+c to exit
+```
+Check in the AWS console EKS > Clusters > {EKS CLUSTER} > Compute
+![eks managed node group scale out](./docs/images/aws-eks-managed-node-group-scale-out.png)
+```sh
+# once load testing is done then, press ctrl+c twice on the terminal running load for demo app
+# and delete the load-generator pod
+kubectl delete -n eks-demo pod/load-generator
+
+# now, check the logs from cluster-autoscaler
+kubectl get -n kube-system pods
+# select the 'cluster-autoscaler-###' pod from the list
+kubectl logs -n kube-system cluster-autoscaler-667b986857-zmq9k -f
+# after few minutes, this should indicate successful scaling down operations like
+# I0726 21:48:01.477675 1 static_autoscaler.go:534] Starting scale down
+# I0726 21:48:01.477706 1 scale_down.go:829] ip-10-0-0-126.ap-southeast-2.compute.internal was unneeded for 10m3.337785561s
+# I0726 21:48:01.477733 1 scale_down.go:1104] Scale-down: removing empty node ip-10-0-0-126.ap-southeast-2.compute.internal
+
+# if you want to delete all resources created by terraform
+cd ../../infra
+terraform destroy -var-file=values.tfvars
+```
 
 
 ## Authors
