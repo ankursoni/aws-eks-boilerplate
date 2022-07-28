@@ -12,6 +12,16 @@ spec:
     name: {{ include "eks-demo-app.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 4
+        periodSeconds: 60  
+      - periodSeconds: 15
+        type: Percent
+        value: 10
   metrics:
     {{- if .Values.autoscaling.averageCPUUtilizationPercentage }}
     - type: Resource
